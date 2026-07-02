@@ -1,4 +1,5 @@
 import { signIn } from "@/app/login/actions";
+import { LoginSubmitButton } from "@/components/LoginSubmitButton";
 
 type LoginPageProps = {
   searchParams: Promise<{
@@ -78,9 +79,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               type="password"
             />
           </label>
-          <button className="min-h-11 rounded-lg bg-adminBlue text-sm font-black text-white" type="submit">
-            Sign in
-          </button>
+          <LoginSubmitButton />
         </div>
       </form>
       </section>
