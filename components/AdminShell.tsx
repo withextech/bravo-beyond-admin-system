@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type MouseEvent, type PointerEvent, type ReactNode } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { AdminSidebar } from "@/components/AdminSidebar";
 
@@ -14,13 +14,30 @@ type AdminShellProps = {
 export function AdminShell({ children, role, sessionTimeout, userMenu }: AdminShellProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isRouteLoading, setIsRouteLoading] = useState(false);
+  const hasMounted = useRef(false);
+  const loadingStartedAt = useRef(0);
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentUrl = `${pathname}?${searchParams.toString()}`;
 
   useEffect(() => {
-    setIsRouteLoading(false);
-  }, [currentUrl]);
+    if (!hasMounted.current) {
+      hasMounted.current = true;
+      return;
+    }
+
+    if (!isRouteLoading) {
+      return;
+    }
+
+    const elapsed = Date.now() - loadingStartedAt.current;
+    const remaining = Math.max(650 - elapsed, 180);
+    const timeout = window.setTimeout(() => {
+      setIsRouteLoading(false);
+    }, remaining);
+
+    return () => window.clearTimeout(timeout);
+  }, [currentUrl, isRouteLoading]);
 
   useEffect(() => {
     if (!isRouteLoading) {
@@ -34,19 +51,8 @@ export function AdminShell({ children, role, sessionTimeout, userMenu }: AdminSh
     return () => window.clearTimeout(timeout);
   }, [isRouteLoading]);
 
-  function startRouteLoading(event: MouseEvent<HTMLDivElement>) {
-    if (
-      event.defaultPrevented ||
-      event.button !== 0 ||
-      event.metaKey ||
-      event.ctrlKey ||
-      event.shiftKey ||
-      event.altKey
-    ) {
-      return;
-    }
-
-    const link = (event.target as HTMLElement).closest("a[href]");
+  function startLoadingForLink(targetElement: HTMLElement) {
+    const link = targetElement.closest("a[href]");
 
     if (!link) {
       return;
@@ -65,11 +71,27 @@ export function AdminShell({ children, role, sessionTimeout, userMenu }: AdminSh
       return;
     }
 
+    loadingStartedAt.current = Date.now();
     setIsRouteLoading(true);
   }
 
+  function startRouteLoading(event: MouseEvent<HTMLDivElement> | PointerEvent<HTMLDivElement>) {
+    if (
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    ) {
+      return;
+    }
+
+    startLoadingForLink(event.target as HTMLElement);
+  }
+
   return (
-    <div className="admin-shell-grid" onClickCapture={startRouteLoading}>
+    <div className="admin-shell-grid" onClickCapture={startRouteLoading} onPointerDownCapture={startRouteLoading}>
       <div className={`admin-route-loader ${isRouteLoading ? "is-loading" : ""}`} aria-hidden="true" />
       {sessionTimeout}
       <AdminSidebar role={role} />
