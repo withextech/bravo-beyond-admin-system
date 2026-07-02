@@ -7,6 +7,7 @@ import {
   updateInfluencerOrder,
   updateInfluencerProfile
 } from "@/app/(admin)/influencers/actions";
+import { getSupabaseBrowserClient } from "@/lib/supabase";
 
 export type InfluencerProfile = {
   id: string;
@@ -190,41 +191,95 @@ function InfluencerForm({
     setPhotoMessage("Uploading photo...");
     setPreviewPhotoUrl(localPreviewUrl);
 
-    const formData = new FormData();
-    formData.set("file", file);
-    formData.set("name", influencer.name || "profile");
-
     try {
-      const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), 60000);
-      const response = await fetch("/api/influencer-profile-photo", {
-        method: "POST",
-        body: formData,
-        signal: controller.signal
-      });
-      window.clearTimeout(timeout);
-      const result = await response.json() as { url?: string; error?: string };
+      const supabase = getSupabaseBrowserClient();
 
-      if (!response.ok || !result.url) {
+      if (!supabase) {
+        setPhotoStatus("error");
+        setPreviewPhotoUrl(uploadedPhotoUrl);
+        setPhotoMessage("Photo upload failed. Check the Supabase browser configuration.");
+        return;
+      }
+
+      const photoName = influencer.name || "profile";
+      const signResponse = await fetch("/api/influencer-profile-photo", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          action: "sign",
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type,
+          name: photoName
+        })
+      });
+      const signResult = await signResponse.json() as {
+        error?: string;
+        publicUrl?: string;
+        storagePath?: string;
+        token?: string;
+      };
+
+      if (!signResponse.ok || !signResult.publicUrl || !signResult.storagePath || !signResult.token) {
         setPhotoStatus("error");
         setPhotoMessage(
-          result.error === "file-too-large"
+          signResult.error === "file-too-large"
             ? "Photo must be 50 MB or smaller."
-            : result.error === "invalid-file"
+            : signResult.error === "invalid-file"
               ? "Photo must be an image file."
-              : "Photo upload failed. Check the media-assets bucket setup."
+              : signResult.error === "session-expired"
+                ? "Your session expired. Sign in again before uploading."
+                : "Photo upload failed. Check the media-assets bucket setup."
         );
         return;
       }
 
-      setPreviewPhotoUrl(result.url);
-      setUploadedPhotoUrl(result.url);
+      const { error: uploadError } = await supabase.storage
+        .from("media-assets")
+        .uploadToSignedUrl(signResult.storagePath, signResult.token, file, {
+          contentType: file.type
+        });
+
+      if (uploadError) {
+        setPhotoStatus("error");
+        setPreviewPhotoUrl(uploadedPhotoUrl);
+        setPhotoMessage("Photo upload failed. Check the media-assets bucket setup.");
+        return;
+      }
+
+      const completeResponse = await fetch("/api/influencer-profile-photo", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          action: "complete",
+          fileName: file.name,
+          fileType: file.type,
+          name: photoName,
+          publicUrl: signResult.publicUrl,
+          storagePath: signResult.storagePath
+        })
+      });
+      const completeResult = await completeResponse.json() as { url?: string; error?: string };
+
+      if (!completeResponse.ok || !completeResult.url) {
+        setPhotoStatus("error");
+        setPreviewPhotoUrl(uploadedPhotoUrl);
+        setPhotoMessage("Photo uploaded, but the media record could not be saved.");
+        return;
+      }
+
+      setPreviewPhotoUrl(completeResult.url);
+      setUploadedPhotoUrl(completeResult.url);
       setPhotoStatus("uploaded");
       setPhotoMessage("Photo uploaded.");
     } catch {
       setPhotoStatus("error");
       setPreviewPhotoUrl(uploadedPhotoUrl);
-      setPhotoMessage("Photo upload timed out. Try a smaller image or check storage setup.");
+      setPhotoMessage("Photo upload failed. Try a smaller image or check storage setup.");
     } finally {
       URL.revokeObjectURL(localPreviewUrl);
     }
