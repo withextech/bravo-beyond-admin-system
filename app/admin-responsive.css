@@ -1,0 +1,144 @@
+.admin-sidebar {
+  background: #1f1f1f;
+  color: white;
+}
+
+.admin-sidebar-desktop {
+  display: block;
+  padding: 20px;
+}
+
+.admin-sidebar-mobile {
+  min-height: 100%;
+  padding: 20px;
+}
+
+.admin-mobile-drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.admin-mobile-drawer.is-open {
+  pointer-events: auto;
+  visibility: visible;
+}
+
+.admin-mobile-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  background: rgba(15, 23, 42, 0);
+  transition: background 180ms ease;
+}
+
+.admin-mobile-drawer.is-open .admin-mobile-backdrop {
+  background: rgba(15, 23, 42, 0.54);
+}
+
+.admin-mobile-panel {
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: grid;
+  width: min(86vw, 320px);
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  background: #1f1f1f;
+  box-shadow: 24px 0 60px rgba(15, 23, 42, 0.24);
+  transform: translateX(-100%);
+  transition: transform 180ms ease;
+}
+
+.admin-mobile-drawer.is-open .admin-mobile-panel {
+  transform: translateX(0);
+}
+
+.admin-mobile-panel-head {
+  display: flex;
+  min-height: 64px;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.12);
+  padding: 0 20px;
+  color: white;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.admin-mobile-panel-head button {
+  display: grid;
+  height: 38px;
+  width: 38px;
+  place-items: center;
+  border: 1px solid rgba(226, 232, 240, 0.16);
+  border-radius: 10px;
+  color: white;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.admin-topbar-title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-menu-button {
+  display: none;
+  height: 42px;
+  width: 42px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid #dbe3ef;
+  border-radius: 10px;
+  background: white;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+.admin-menu-button span {
+  display: block;
+  width: 18px;
+  height: 2px;
+  border-radius: 999px;
+  background: #0f172a;
+}
+
+.admin-menu-button span + span {
+  margin-top: 4px;
+}
+
+@media (max-width: 900px) {
+  .admin-sidebar-desktop {
+    display: none;
+  }
+
+  .admin-topbar {
+    min-height: 68px;
+    gap: 10px;
+  }
+
+  .admin-menu-button {
+    display: grid;
+  }
+
+  .admin-topbar strong {
+    font-size: 1rem;
+  }
+
+  .admin-topbar-title p {
+    font-size: 0.68rem;
+  }
+
+  .admin-content main {
+    padding: 16px;
+    padding-top: 0;
+  }
+}

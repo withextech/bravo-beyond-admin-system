@@ -7,7 +7,9 @@ import Link from "next/link";
 import { activeNavItems, editorNavItems } from "@/lib/navigation";
 
 type AdminSidebarProps = {
+  onNavigate?: () => void;
   role?: string | null;
+  variant?: "desktop" | "mobile";
 };
 
 function normalizePath(path: string | null) {
@@ -19,7 +21,7 @@ function normalizePath(path: string | null) {
   return trimmed === "" ? "/" : trimmed;
 }
 
-export function AdminSidebar({ role }: AdminSidebarProps) {
+export function AdminSidebar({ onNavigate, role, variant = "desktop" }: AdminSidebarProps) {
   const pathname = normalizePath(usePathname());
   const navItems = role === "editor" ? editorNavItems : activeNavItems;
 
@@ -36,7 +38,7 @@ export function AdminSidebar({ role }: AdminSidebarProps) {
   }, [pathname]);
 
   return (
-    <aside className="hidden bg-graphite p-5 text-white md:block">
+    <aside className={variant === "desktop" ? "admin-sidebar admin-sidebar-desktop" : "admin-sidebar admin-sidebar-mobile"}>
       <Link href="/" className="mb-8 flex items-center gap-3">
         <Image src="/assets/admin-bb-logo.jpg" alt="" width={48} height={48} className="rounded-xl object-cover" />
         <span className="grid">
@@ -50,6 +52,7 @@ export function AdminSidebar({ role }: AdminSidebarProps) {
           <Link
             key={item.href}
             href={item.href}
+            onClick={onNavigate}
             aria-current={pathname === normalizePath(item.href) || pathname.startsWith(`${normalizePath(item.href)}/`) ? "page" : undefined}
             className={itemClassName(item.href)}
           >
