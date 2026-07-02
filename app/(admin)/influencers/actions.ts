@@ -10,7 +10,6 @@ type InfluencerPayload = {
   category: string;
   short_bio: string;
   full_bio: string;
-  date_joined: string | null;
   profile_image_url: string;
   email_address: string;
   instagram_username: string;
@@ -80,7 +79,6 @@ function buildInfluencerPayload(formData: FormData): InfluencerPayload {
     category: getNiches(formData).join(" / "),
     short_bio: fullBio,
     full_bio: fullBio,
-    date_joined: clean(formData.get("date_joined")) || null,
     profile_image_url: clean(formData.get("profile_image_url")),
     email_address: clean(formData.get("email_address")),
     instagram_username: clean(formData.get("instagram_username")),

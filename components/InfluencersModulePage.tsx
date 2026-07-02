@@ -60,7 +60,9 @@ function getStatusTone(status?: string) {
     : "border-emerald-200 bg-emerald-50 text-emerald-700";
 }
 
-function normalizeInfluencer(profile: Partial<InfluencerProfile>): InfluencerProfile {
+function normalizeInfluencer(profile: Partial<InfluencerProfile> & { created_at?: string }): InfluencerProfile {
+  const fallbackDateJoined = profile.created_at ? profile.created_at.slice(0, 10) : "";
+
   return {
     ...emptyInfluencer,
     ...profile,
@@ -68,7 +70,7 @@ function normalizeInfluencer(profile: Partial<InfluencerProfile>): InfluencerPro
     name: profile.name || "",
     category: profile.category || "",
     full_bio: profile.full_bio || "",
-    date_joined: profile.date_joined || "",
+    date_joined: profile.date_joined || fallbackDateJoined,
     profile_image_url: profile.profile_image_url || "",
     email_address: profile.email_address || "",
     instagram_username: profile.instagram_username || "",
@@ -107,7 +109,7 @@ export async function InfluencersModulePage({
         name,
         category,
         full_bio,
-        date_joined,
+        created_at,
         profile_image_url,
         email_address,
         instagram_username,
