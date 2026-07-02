@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { archivePageSection, deletePartnerLogo, savePageSection, uploadPartnerLogo } from "@/app/(admin)/cms/pages/actions";
+import { useMemo, useState, type FormEvent } from "react";
+import { archivePageSection, savePageSection } from "@/app/(admin)/cms/pages/actions";
 
 export type ContentStatus = "draft" | "published" | "archived";
 
@@ -60,6 +60,12 @@ type WebsitePageEditorProps = {
   setupMissing: boolean;
 };
 
+type PartnerLogoRow = {
+  brandName: string;
+  sortOrder: number;
+  logo: ClientLogo;
+};
+
 const emptyRecord: Omit<PageSectionRecord, "page_key" | "section_key" | "sort_order"> = {
   title: "",
   subtitle: "",
@@ -69,31 +75,6 @@ const emptyRecord: Omit<PageSectionRecord, "page_key" | "section_key" | "sort_or
   media_asset_id: "",
   status: "draft"
 };
-
-const partnerBrandNames = [
-  "DQ",
-  "Old Spice",
-  "Globe",
-  "KTO",
-  "Disney",
-  "Food Panda",
-  "Jollibee",
-  "Skin1004",
-  "Dr. Wong's",
-  "Coins.ph",
-  "Shopee",
-  "Amplify",
-  "In Circle",
-  "Nestle",
-  "P&G",
-  "Pantene",
-  "Olay",
-  "BDO",
-  "Lazada",
-  "SUI SUI",
-  "Nivea",
-  "CeraVe"
-];
 
 function getRecordKey(pageKey: string, sectionKey: string) {
   return `${pageKey}:${sectionKey}`;
@@ -134,11 +115,15 @@ function MediaPreview({ asset, videoOnly = false }: { asset?: MediaAsset; videoO
 function PartnerLogoTile({
   asset,
   brandName,
-  disabled
+  disabled,
+  isUploading,
+  onFile
 }: {
   asset?: MediaAsset;
   brandName: string;
   disabled: boolean;
+  isUploading: boolean;
+  onFile: (file: File) => void;
 }) {
   return (
     <label className="partner-logo-preview">
@@ -151,9 +136,16 @@ function PartnerLogoTile({
         accept="image/*"
         disabled={disabled}
         name="logo_file"
-        onChange={(event) => event.currentTarget.form?.requestSubmit()}
+        onChange={(event) => {
+          const file = event.currentTarget.files?.[0];
+          event.currentTarget.value = "";
+          if (file) {
+            onFile(file);
+          }
+        }}
         type="file"
       />
+      {isUploading ? <span className="partner-logo-spinner" aria-label="Uploading" /> : null}
     </label>
   );
 }
@@ -169,33 +161,27 @@ export function WebsitePageEditor({
   const [activePageKey, setActivePageKey] = useState(initialPageKey);
   const [activeSectionKey, setActiveSectionKey] = useState(pages.find((page) => page.key === initialPageKey)?.sections[0]?.section_key || "");
   const [isAddPartnerOpen, setIsAddPartnerOpen] = useState(false);
+  const [partnerLogos, setPartnerLogos] = useState(clientLogos);
+  const [partnerAssets, setPartnerAssets] = useState(mediaAssets);
+  const [uploadingLogoKey, setUploadingLogoKey] = useState<string | null>(null);
+  const [deletingLogoId, setDeletingLogoId] = useState<string | null>(null);
+  const [isAddingPartner, setIsAddingPartner] = useState(false);
+  const [newPartnerLogoPreview, setNewPartnerLogoPreview] = useState<string | null>(null);
 
   const recordsByKey = useMemo(() => {
     return new Map(sections.map((section) => [getRecordKey(section.page_key, section.section_key), section]));
   }, [sections]);
 
   const mediaById = useMemo(() => {
-    return new Map(mediaAssets.map((asset) => [asset.id, asset]));
-  }, [mediaAssets]);
-  const logosByName = useMemo(() => {
-    return new Map(clientLogos.map((logo) => [logo.brand_name.toLowerCase(), logo]));
-  }, [clientLogos]);
+    return new Map(partnerAssets.map((asset) => [asset.id, asset]));
+  }, [partnerAssets]);
   const partnerLogoRows = useMemo(() => {
-    const baseRows = partnerBrandNames.map((brandName, index) => ({
-      brandName,
-      sortOrder: index + 1,
-      logo: logosByName.get(brandName.toLowerCase())
+    return partnerLogos.map((logo, index) => ({
+      brandName: logo.brand_name,
+      sortOrder: logo.sort_order || index + 1,
+      logo
     }));
-    const customRows = clientLogos
-      .filter((logo) => !partnerBrandNames.some((brandName) => brandName.toLowerCase() === logo.brand_name.toLowerCase()))
-      .map((logo, index) => ({
-        brandName: logo.brand_name,
-        sortOrder: partnerBrandNames.length + index + 1,
-        logo
-      }));
-
-    return [...baseRows, ...customRows];
-  }, [clientLogos, logosByName]);
+  }, [partnerLogos]);
 
   const activePage = pages.find((page) => page.key === activePageKey) || pages[0];
   const activeSection = activePage.sections.find((section) => section.section_key === activeSectionKey) || activePage.sections[0];
@@ -210,6 +196,111 @@ export function WebsitePageEditor({
   const isHeroVideoSection = activePage.key === "home" && activeSection.section_key === "hero";
   const isWhatWeBuildSection = activePage.key === "home" && activeSection.section_key === "intro";
   const isPartnerBrandsSection = activePage.key === "home" && activeSection.section_key === "trusted";
+
+  async function uploadLogo({
+    brandName,
+    file,
+    logoId,
+    sortOrder,
+    loadingKey
+  }: {
+    brandName: string;
+    file: File;
+    logoId?: string;
+    sortOrder: number;
+    loadingKey: string;
+  }) {
+    setUploadingLogoKey(loadingKey);
+
+    const formData = new FormData();
+    formData.set("brand_name", brandName);
+    formData.set("logo_id", logoId || "");
+    formData.set("sort_order", String(sortOrder));
+    formData.set("logo_file", file);
+
+    try {
+      const response = await fetch("/api/partner-logos", {
+        method: "POST",
+        body: formData
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "upload-failed");
+      }
+
+      setPartnerAssets((current) => {
+        const withoutDuplicate = current.filter((asset) => asset.id !== result.asset.id);
+        return [result.asset, ...withoutDuplicate];
+      });
+      setPartnerLogos((current) => {
+        const withoutDuplicate = current.filter((logo) => logo.id !== result.logo.id);
+        return [...withoutDuplicate, result.logo].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+      });
+      return true;
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Logo upload failed.");
+      return false;
+    } finally {
+      setUploadingLogoKey(null);
+    }
+  }
+
+  async function deleteLogo(logo: ClientLogo) {
+    if (!window.confirm(`Delete ${logo.brand_name}?`)) {
+      return;
+    }
+
+    setDeletingLogoId(logo.id);
+
+    try {
+      const response = await fetch("/api/partner-logos", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ id: logo.id })
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "delete-failed");
+      }
+
+      setPartnerLogos((current) => current.filter((item) => item.id !== logo.id));
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Delete failed.");
+    } finally {
+      setDeletingLogoId(null);
+    }
+  }
+
+  async function addPartner(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const formData = new FormData(event.currentTarget);
+    const brandName = String(formData.get("brand_name") || "").trim();
+    const file = formData.get("logo_file");
+
+    if (!brandName || !(file instanceof File) || file.size === 0) {
+      window.alert("Add the brand name and logo.");
+      return;
+    }
+
+    setIsAddingPartner(true);
+    const ok = await uploadLogo({
+      brandName,
+      file,
+      sortOrder: partnerLogoRows.length + 1,
+      loadingKey: "__new__"
+    });
+    setIsAddingPartner(false);
+
+    if (ok) {
+      setNewPartnerLogoPreview(null);
+      setIsAddPartnerOpen(false);
+    }
+  }
   return (
     <div className="website-editor">
       <nav className="website-page-rail" aria-label="Portfolio website pages">
@@ -276,29 +367,46 @@ export function WebsitePageEditor({
                 <button type="button" onClick={() => setIsAddPartnerOpen(true)}>Add brand</button>
               </div>
               <div className="partner-logo-list">
+                {partnerLogoRows.length === 0 ? (
+                  <div className="partner-logo-empty">No partner brands yet. Use Add brand to create the first one.</div>
+                ) : null}
                 {partnerLogoRows.map(({ brandName, logo, sortOrder }) => {
                   const logoAsset = logo?.logo_media_id ? mediaById.get(logo.logo_media_id) : undefined;
 
                   return (
                     <div className="partner-logo-row" key={brandName}>
                       <strong>{brandName}</strong>
-                      <form action={uploadPartnerLogo} className="partner-logo-upload-form">
-                        <input name="brand_name" type="hidden" value={brandName} />
-                        <input name="logo_id" type="hidden" value={logo?.id || ""} />
-                        <input name="sort_order" type="hidden" value={sortOrder} />
-                        <PartnerLogoTile asset={logoAsset} brandName={brandName} disabled={setupMissing} />
-                      </form>
-                      <form action={deletePartnerLogo}>
-                        <input name="logo_id" type="hidden" value={logo?.id || ""} />
-                        <button disabled={setupMissing || !logo?.id} type="submit">Delete</button>
-                      </form>
+                      <PartnerLogoTile
+                        asset={logoAsset}
+                        brandName={brandName}
+                        disabled={setupMissing || uploadingLogoKey === logo.id}
+                        isUploading={uploadingLogoKey === logo.id}
+                        onFile={(file) => {
+                          void uploadLogo({
+                            brandName,
+                            file,
+                            logoId: logo.id,
+                            sortOrder,
+                            loadingKey: logo.id
+                          });
+                        }}
+                      />
+                      <button
+                        disabled={setupMissing || deletingLogoId === logo.id}
+                        onClick={() => {
+                          void deleteLogo(logo);
+                        }}
+                        type="button"
+                      >
+                        {deletingLogoId === logo.id ? "Deleting..." : "Delete"}
+                      </button>
                     </div>
                   );
                 })}
               </div>
               {isAddPartnerOpen ? (
                 <div className="partner-modal-backdrop">
-                  <form action={uploadPartnerLogo} className="partner-modal">
+                  <form className="partner-modal" onSubmit={addPartner}>
                     <div className="partner-modal-header">
                       <div>
                         <p>Add brand</p>
@@ -314,11 +422,30 @@ export function WebsitePageEditor({
                     <div className="partner-modal-logo-field">
                       <span>Logo</span>
                       <label className="partner-logo-preview partner-logo-preview-large">
-                        <span>Upload logo</span>
-                        <input accept="image/*" name="logo_file" required type="file" />
+                        {newPartnerLogoPreview ? (
+                          <img alt="New partner logo preview" src={newPartnerLogoPreview} />
+                        ) : (
+                          <span>Upload logo</span>
+                        )}
+                        <input
+                          accept="image/*"
+                          name="logo_file"
+                          onChange={(event) => {
+                            const file = event.currentTarget.files?.[0];
+                            if (newPartnerLogoPreview) {
+                              URL.revokeObjectURL(newPartnerLogoPreview);
+                            }
+                            setNewPartnerLogoPreview(file ? URL.createObjectURL(file) : null);
+                          }}
+                          required
+                          type="file"
+                        />
+                        {isAddingPartner ? <span className="partner-logo-spinner" aria-label="Uploading" /> : null}
                       </label>
                     </div>
-                    <button disabled={setupMissing} type="submit">Add brand</button>
+                    <button disabled={setupMissing || isAddingPartner} type="submit">
+                      {isAddingPartner ? "Adding..." : "Add brand"}
+                    </button>
                   </form>
                 </div>
               ) : null}

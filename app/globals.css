@@ -1371,6 +1371,17 @@ body {
   background: #fff;
 }
 
+.partner-logo-empty {
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  padding: 22px;
+  color: #64748b;
+  background: #f8fafc;
+  font-size: 0.9rem;
+  font-weight: 900;
+  text-align: center;
+}
+
 .partner-logo-row strong {
   color: #0f172a;
   font-size: 0.94rem;
@@ -1406,10 +1417,11 @@ body {
 
 .partner-logo-preview img {
   display: block;
-  width: 100%;
-  height: 100%;
+  width: auto;
+  height: auto;
+  max-width: calc(100% - 8px);
+  max-height: calc(100% - 8px);
   object-fit: contain;
-  padding: 6px;
 }
 
 .partner-logo-preview span {
@@ -1429,6 +1441,24 @@ body {
 .partner-logo-preview-large {
   width: 100%;
   height: 160px;
+}
+
+.partner-logo-spinner {
+  position: absolute;
+  inset: auto;
+  width: 26px;
+  height: 26px;
+  border: 3px solid rgba(37, 99, 235, 0.16);
+  border-top-color: #2563eb;
+  border-radius: 999px;
+  background: transparent;
+  animation: partner-logo-spin 0.8s linear infinite;
+}
+
+@keyframes partner-logo-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .partner-logo-row form:last-child {

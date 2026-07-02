@@ -216,9 +216,25 @@ export async function uploadPartnerLogo(formData: FormData) {
     updated_at: new Date().toISOString()
   };
 
-  const { error } = logoId
-    ? await admin.from("client_logos").update(payload).eq("id", logoId)
-    : await admin.from("client_logos").insert(payload);
+  let error = null;
+
+  if (logoId) {
+    const result = await admin.from("client_logos").update(payload).eq("id", logoId);
+    error = result.error;
+  } else {
+    const { data: existing } = await admin
+      .from("client_logos")
+      .select("id")
+      .ilike("brand_name", brandName)
+      .neq("status", "archived")
+      .maybeSingle();
+
+    const result = existing?.id
+      ? await admin.from("client_logos").update(payload).eq("id", existing.id)
+      : await admin.from("client_logos").insert(payload);
+
+    error = result.error;
+  }
 
   if (error) {
     redirectWithStatus("save-failed", "home");
