@@ -35,6 +35,7 @@ export type InfluencerProfile = {
 type InfluencersClientPageProps = {
   influencers: InfluencerProfile[];
   returnPath: "/influencers" | "/cms/influencers";
+  dataLoadFailed: boolean;
   schemaUpdateRequired: boolean;
   setupMissing: boolean;
 };
@@ -154,12 +155,14 @@ function InfluencerForm({
   influencer = emptyInfluencer,
   mode,
   returnPath,
+  dataLoadFailed,
   setupMissing,
   schemaUpdateRequired
 }: {
   influencer?: InfluencerProfile;
   mode: "create" | "update";
   returnPath: InfluencersClientPageProps["returnPath"];
+  dataLoadFailed: boolean;
   schemaUpdateRequired: boolean;
   setupMissing: boolean;
 }) {
@@ -332,7 +335,7 @@ function InfluencerForm({
           <button
             formAction={deleteInfluencerProfile}
             className="min-h-11 rounded-lg border border-red-200 px-5 text-sm font-black text-red-700 disabled:cursor-not-allowed disabled:text-slate-400"
-            disabled={setupMissing}
+            disabled={setupMissing || dataLoadFailed}
             type="submit"
           >
             Delete influencer
@@ -340,7 +343,7 @@ function InfluencerForm({
         ) : <span />}
         <button
           className="min-h-11 rounded-lg bg-adminBlue px-6 text-sm font-black text-white transition hover:bg-adminBlue/90 disabled:cursor-not-allowed disabled:bg-slate-300"
-          disabled={setupMissing || schemaUpdateRequired || photoStatus === "uploading"}
+          disabled={setupMissing || dataLoadFailed || schemaUpdateRequired || photoStatus === "uploading"}
           type="submit"
         >
           {mode === "create" ? "Save influencer" : "Save changes"}
@@ -353,6 +356,7 @@ function InfluencerForm({
 export function InfluencersClientPage({
   influencers,
   returnPath,
+  dataLoadFailed,
   schemaUpdateRequired,
   setupMissing
 }: InfluencersClientPageProps) {
@@ -398,7 +402,7 @@ export function InfluencersClientPage({
           <h2 className="text-xl font-black text-slate-950">Influencer Records</h2>
           <button
             className="min-h-11 rounded-lg bg-adminBlue px-5 text-sm font-black text-white transition hover:bg-adminBlue/90 disabled:cursor-not-allowed disabled:bg-slate-300"
-            disabled={setupMissing || schemaUpdateRequired}
+            disabled={setupMissing || dataLoadFailed || schemaUpdateRequired}
             onClick={() => setIsCreateOpen(true)}
             type="button"
           >
@@ -489,6 +493,7 @@ export function InfluencersClientPage({
               <InfluencerForm
                 mode="create"
                 returnPath={returnPath}
+                dataLoadFailed={dataLoadFailed}
                 schemaUpdateRequired={schemaUpdateRequired}
                 setupMissing={setupMissing}
               />
@@ -526,6 +531,7 @@ export function InfluencersClientPage({
                 influencer={activeInfluencer}
                 mode="update"
                 returnPath={returnPath}
+                dataLoadFailed={dataLoadFailed}
                 schemaUpdateRequired={schemaUpdateRequired}
                 setupMissing={setupMissing}
               />

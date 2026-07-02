@@ -46,6 +46,10 @@ const statusMessages: Record<string, string> = {
   "profile-deleted": "Influencer profile deleted."
 };
 
+function isMissingSupabaseConfigError(error: unknown) {
+  return error instanceof Error && error.message.includes("Missing Supabase admin environment variables");
+}
+
 function getStatusTone(status?: string) {
   if (!status) {
     return "";
@@ -91,6 +95,7 @@ export async function InfluencersModulePage({
 }: InfluencersModulePageProps) {
   let setupMissing = false;
   let schemaUpdateRequired = false;
+  let dataLoadFailed = false;
   let influencers: InfluencerProfile[] = [];
 
   try {
@@ -132,8 +137,13 @@ export async function InfluencersModulePage({
     }
 
     influencers = (data || []).map((profile) => normalizeInfluencer(profile as Partial<InfluencerProfile>));
-  } catch {
-    setupMissing = true;
+  } catch (error) {
+    if (isMissingSupabaseConfigError(error)) {
+      setupMissing = true;
+    } else {
+      dataLoadFailed = true;
+      console.error("Influencer profiles could not be loaded.", error);
+    }
   }
 
   return (
@@ -157,7 +167,13 @@ export async function InfluencersModulePage({
 
       {setupMissing ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm font-bold leading-7 text-amber-800">
-          Set `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SECRET_KEY` in `.env.local` to manage influencer profiles.
+          Set `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SECRET_KEY` in the project environment variables to manage influencer profiles.
+        </div>
+      ) : null}
+
+      {dataLoadFailed ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm font-bold leading-7 text-amber-800">
+          Influencer profiles could not be loaded. Check the Supabase schema and Vercel function logs for the exact database error.
         </div>
       ) : null}
 
@@ -170,6 +186,7 @@ export async function InfluencersModulePage({
       <InfluencersClientPage
         influencers={influencers}
         returnPath={returnPath}
+        dataLoadFailed={dataLoadFailed}
         schemaUpdateRequired={schemaUpdateRequired}
         setupMissing={setupMissing}
       />
