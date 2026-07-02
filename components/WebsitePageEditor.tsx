@@ -84,6 +84,16 @@ function isVideo(asset?: MediaAsset) {
   return Boolean(asset?.file_type?.startsWith("video/"));
 }
 
+async function readApiJson(response: Response) {
+  const contentType = response.headers.get("content-type") || "";
+
+  if (!contentType.includes("application/json")) {
+    throw new Error(response.ok ? "Unexpected API response." : `Upload request failed (${response.status}).`);
+  }
+
+  return response.json();
+}
+
 function MediaPreview({ asset, videoOnly = false }: { asset?: MediaAsset; videoOnly?: boolean }) {
   if (!asset?.public_url) {
     return (
@@ -223,7 +233,7 @@ export function WebsitePageEditor({
         method: "POST",
         body: formData
       });
-      const result = await response.json();
+      const result = await readApiJson(response);
 
       if (!response.ok) {
         throw new Error(result.error || "upload-failed");
@@ -261,7 +271,7 @@ export function WebsitePageEditor({
         },
         body: JSON.stringify({ id: logo.id })
       });
-      const result = await response.json();
+      const result = await readApiJson(response);
 
       if (!response.ok) {
         throw new Error(result.error || "delete-failed");
